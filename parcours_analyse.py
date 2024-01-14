@@ -9,8 +9,6 @@ try:
 except:
     !pip install folium
 
-# Nota: Pour utiliser ce script : placer ce script dans un répertoire. Créer à côté de ce fichier, un répertoire nommé a_traiter. Placer un ou plusieurs fichiers .fit dans le répertoire a_traiter. Lancer le script.
-
 # Fonctions
 # Chmod all files in a repository
 def chmod_all_files(repertoire):
@@ -172,7 +170,17 @@ def analyse(fichier_nom, fichier_date):
             else:
                 pass
         return mini
-
+    
+    def vitesse_moyenne_activitée(vitesse, distance, temps):
+        passe_bas = 0
+        for v_tmp in vitesse:
+            if (v_tmp < 5):  # Application d'un filtre passe bas afin de décompter le temps à l'arrêt.
+                passe_bas += 1
+            else:
+                pass  # Do nothing
+        durée_activité = ecart_dates_minutes(timestamp_raw[0], timestamp_raw[len(timestamp_raw) - abs(1 + passe_bas)])
+        return round(distance / (durée_activité / 60), 2)
+    
     # Calcul de valeurs clées en utilisant les fonctions de calculs
     durée_minutes = ecart_dates_minutes(timestamp_raw[0], timestamp_raw[len(timestamp_raw) - 1])
     heure_min = timestamp_raw[0]
@@ -180,44 +188,46 @@ def analyse(fichier_nom, fichier_date):
     durée_heures = durée_minutes / 60
     distance_totale_km = round(distance_raw[len(distance_raw) - 1], 2)
     distance_totale_m = round(distance_totale_km * 1000, 2)
-    vitesse_moyenne = distance_totale_km / (durée_minutes / 60)
-    vitesse_max = max_value(speed_raw)
+    #vitesse_moyenne = distance_totale_km / (durée_minutes / 60)
+    vitesse_max = round(max_value(speed_raw), 2)
     altitude_max = round(max_value(altitude_raw), 2)
     altitude_min = round(min_value(altitude_raw), 2)
+    altitude_moyenne = round(np.mean(altitude_raw), 2)
     temperature_moyenne = round(np.mean(temperatures_raw), 2)
-    temperature_min = min_value(temperatures_raw)
-    temperature_max = max_value(temperatures_raw)
-    total_ascention_tmp = abs(altitude_max - altitude_min)
+    temperature_min = round(min_value(temperatures_raw), 2)
+    temperature_max = round(max_value(temperatures_raw), 2)
+    total_ascention_tmp = round(abs(altitude_max - altitude_min), 2)
     total_ascention = round(total_ascention_tmp, 2)
+    vitesse_moyenne_enhanced = vitesse_moyenne_activitée(speed_raw, distance_totale_km, timestamp_raw)
 
     # Création de la carte avec Folium
     carte = folium.Map(location=[49.032316511710704, 2.3412509868576286], zoom_start=12)
-    folium.Marker(location=[latitude_raw[0], longitude_raw[0]], icon=folium.Icon(color="green")).add_to(carte)
+    folium.Marker(location=[latitude_raw[0], longitude_raw[0]], tooltip=timestamp_raw[0], icon=folium.Icon(color="green")).add_to(carte)
     for i in range(1, len(latitude_raw)-2):
-        folium.Marker(location=[latitude_raw[i], longitude_raw[i]], icon=folium.Icon(color="blue")).add_to(carte)
-    folium.Marker(location=[latitude_raw[len(latitude_raw)-1], longitude_raw[len(longitude_raw)-1]], icon=folium.Icon(color="red")).add_to(carte)
+        folium.Marker(location=[latitude_raw[i], longitude_raw[i]], tooltip=timestamp_raw[i], icon=folium.Icon(color="blue")).add_to(carte)
+    folium.Marker(location=[latitude_raw[len(latitude_raw)-1], longitude_raw[len(longitude_raw)-1]], tooltip=timestamp_raw[len(latitude_raw)-1], icon=folium.Icon(color="red")).add_to(carte)
     carte.save(f"resultats/{fichier_nom}_{fichier_date}/{fichier_nom}_map.html")
     
     # Affichage de statistiques lors de l'exécution du code
-    print(f"Vitesse moyenne: {round(vitesse_moyenne, 2)}km/h")
+    #print(f"Vitesse moyenne: {round(vitesse_moyenne, 2)}km/h")
+    print(f"Vitesse moyenne en activitée: {vitesse_moyenne_enhanced}km/h")
     print(f"Vitesse max: {vitesse_max}km/h")
-    print(f"Altitude moyenne: km/h")
+    print(f"Altitude moyenne: {altitude_moyenne}m")
     print(f"Altitude min: {altitude_min}m")
     print(f"Altitude max: {altitude_max}m")
-    print(f"Température moyenne: {temperature_moyenne}")
-    print(f"Température min: {temperature_min}")
-    print(f"Température max: {temperature_max}")
-    print(f"Total ascention: {total_ascention}")
-    print(f"Distance: {distance_totale_m}m")
+    print(f"Température moyenne: {temperature_moyenne}°C")
+    print(f"Température min: {temperature_min}°C")
+    print(f"Température max: {temperature_max}°C")
+    print(f"Total ascention: {total_ascention}m")
     print(f"Distance: {distance_totale_km}km")
-    print(f"Durée: {durée_minutes}min")
+    print(f"Durée: {int(durée_minutes // 60)}H{round(durée_minutes % 60)}min")
     print(f"Heure début: {heure_min}")
     print(f"Heure fin: {heure_max}")
 
     # Enregistrement du résultat de l'exécution du programme
     f = open(f"resultats/{fichier_nom}_{fichier_date}/{fichier_nom}_resultat_analyse.txt", "a")
-    f.write("Heure de départ;Heure d'arrivée;Durée;Distance parcourue (m);Distance parcourue (km);Vitesse moyenne;Vitesse max;Lieu arrivée;Lieu Départ;Altitude min;Altitude max;Température min;Température max;Température moyenne\n")
-    f.write(f"{heure_min};{heure_max};{durée_minutes};{distance_totale_m};{distance_totale_km};{vitesse_moyenne};{vitesse_max};Lieu inconnu;lieu inconnu;{altitude_min};{altitude_max};{temperature_min};{temperature_max};{temperature_moyenne}\n")
+    f.write("Heure de départ;Heure d'arrivée;Durée (human);Durée (compu);Distance parcourue (m);Distance parcourue (km);Vitesse moyenne;Vitesse max;Lieu arrivée;Lieu Départ;Altitude min;Altitude max;Température min;Température max;Température moyenne\n")
+    f.write(f"{heure_min};{heure_max};{int(durée_minutes // 60)}H{round(durée_minutes % 60)}min;{durée_minutes};{distance_totale_m};{distance_totale_km};{vitesse_moyenne_enhanced};{vitesse_max};Lieu inconnu;lieu inconnu;{altitude_min};{altitude_max};{temperature_min};{temperature_max};{temperature_moyenne}\n")
     f.close()
     
     # Création d'un CSV avec toutes les données du trajet
